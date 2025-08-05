@@ -1,6 +1,9 @@
 import re
 import asyncio
 import httpx
+import csv
+import os
+from datetime import datetime
 
 
 async def fetchGeocode(city):
@@ -92,14 +95,36 @@ def printWeatherTable(data):
         print(line)
 
 
+def getFilename():
+    today = datetime.now().strftime("%Y-%m-%d")
+    return f"weather_{today}.csv"
+
+
+def writeToCsv(data):
+    current_dir = os.path.dirname(__file__)
+    filename = getFilename()
+    file_path = os.path.join(current_dir, filename)
+    file_exists = os.path.isfile(file_path)
+
+    with open(filename, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        if not file_exists:
+            writer.writerow(["City", "Temp [°C]", "Wind [km/h]"])
+        for row in data:
+            writer.writerow([row[0], row[1], row[2]])
+
+
 async def main():
     cities = input("Enter city names separeted by spaces, commas or colons: ")
     cities = parseCityInput(cities)
     tasks = [processCity(city) for city in cities]
-
     results = await asyncio.gather(*tasks)
 
     printWeatherTable(results)
+
+    if len(results) > 0:
+        writeToCsv(results)
 
 
 if __name__ == "__main__":
