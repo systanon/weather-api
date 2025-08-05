@@ -63,14 +63,15 @@ async def fetchWeather(lat, lon):
         return {"error": True}
 
 
-async def processCity(city):
-    geo = await fetchGeocode(city)
+async def processCity(city, semaphore):
+    async with semaphore:
+        geo = await fetchGeocode(city)
 
-    if not geo["error"]:
-        weather = await fetchWeather(geo["latitude"], geo["longitude"])
-        weather.insert(0, city)
-        return weather
-    return {"error": True, "city": city}
+        if not geo["error"]:
+            weather = await fetchWeather(geo["latitude"], geo["longitude"])
+            weather.insert(0, city)
+            return weather
+        return {"error": True, "city": city}
 
 
 def parseCityInput(input_str):
@@ -116,9 +117,10 @@ def writeToCsv(data):
 
 
 async def main():
+    semaphore = asyncio.Semaphore(5)
     cities = input("Enter city names separeted by spaces, commas or colons: ")
     cities = parseCityInput(cities)
-    tasks = [processCity(city) for city in cities]
+    tasks = [processCity(city, semaphore) for city in cities]
     results = await asyncio.gather(*tasks)
 
     printWeatherTable(results)
