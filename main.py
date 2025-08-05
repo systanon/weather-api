@@ -41,8 +41,8 @@ async def fetchWeather(lat, lon):
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(url)
-            data = resp.json()
-            return data
+            data = resp.json()["current_weather"]
+            return [data["temperature"], data["windspeed"]]
 
     except httpx.ConnectTimeout:
         print("Timeout error: the request took too long.")
@@ -65,6 +65,7 @@ async def processCity(city):
 
     if not geo["error"]:
         weather = await fetchWeather(geo["latitude"], geo["longitude"])
+        weather.insert(0, city)
         return weather
     return {"error": True, "city": city}
 
@@ -74,6 +75,23 @@ def parseCityInput(input_str):
     return [city for city in cities if city]
 
 
+def printWeatherTable(data):
+    headers = ["City", "Temp [°C]", "Wind [km/h]"]
+
+    col_widths = [
+        max(len(str(row[0])) for row in data + [headers]),
+        max(len(str(row[1])) for row in data + [headers]),
+        max(len(str(row[2])) for row in data + [headers]),
+    ]
+
+    header_line = " | ".join(str(h).ljust(w) for h, w in zip(headers, col_widths))
+    print(header_line)
+
+    for row in data:
+        line = " | ".join(str(cell).ljust(w) for cell, w in zip(row, col_widths))
+        print(line)
+
+
 async def main():
     cities = input("Enter city names separeted by spaces, commas or colons: ")
     cities = parseCityInput(cities)
@@ -81,8 +99,7 @@ async def main():
 
     results = await asyncio.gather(*tasks)
 
-    for res in results:
-        print(res)
+    printWeatherTable(results)
 
 
 if __name__ == "__main__":
